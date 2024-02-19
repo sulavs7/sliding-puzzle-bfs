@@ -1,0 +1,224 @@
+#include <iostream>
+#include <cmath>
+#include <queue>
+#include <vector>
+#include <list>
+#include <unordered_set>
+
+using namespace std;
+using PuzzleState = vector<vector<int>>;
+
+namespace std
+{
+template <>
+struct hash<vector<vector<int>>>
+{
+    size_t operator()(const vector<vector<int>>& v) const
+    {
+        size_t hash_val = 0;
+        for (const auto& row : v)
+        {
+            for (int value : row)
+            {
+                hash_val ^= hash<int>()(value) + 0x9e3779b9 + (hash_val << 6) + (hash_val >> 2);
+            }
+        }
+        return hash_val;
+    }
+};
+}
+
+namespace std
+{
+template <>
+struct equal_to<vector<vector<int>>>
+{
+    bool operator()(const vector<vector<int>>& lhs, const vector<vector<int>>& rhs) const
+    {
+        return lhs == rhs;
+    }
+};
+}
+
+struct Node
+{
+    int cost;
+    PuzzleState state;
+    Node* parent;
+};
+
+bool Solvable(const PuzzleState& state)
+{
+    int inversions = 0;
+    vector<int> flattenedState;
+
+    // Flatten the 2D state to 1D
+    for (const auto& row : state)
+    {
+        flattenedState.insert(flattenedState.end(), row.begin(), row.end());
+    }
+
+    for (int i = 0; i < flattenedState.size(); i++)
+    {
+        for (int j = i + 1; j < flattenedState.size(); j++)
+        {
+            if (flattenedState[i] != 0 && flattenedState[j] != 0 && flattenedState[i] > flattenedState[j])
+            {
+                inversions++;
+            }
+        }
+    }
+
+    if (state.size() % 2 == 1)
+    {
+        return inversions % 2 == 0;
+    }
+    else
+    {
+        int blankRowFromBottom = 0; // row containing the blank tile (0-indexed) from the bottom
+        for (int i = 0; i < state.size(); i++)
+        {
+            if (state[i][state.size() - 1] == 0)
+            {
+                blankRowFromBottom = i;
+                break;
+            }
+        }
+        return (inversions + blankRowFromBottom) % 2 == 1;
+    }
+}
+
+void print_state(const PuzzleState& printstate)
+{
+    for (int i = 0; i < printstate.size(); i++)
+    {
+        for (int j = 0; j < printstate.size(); j++)
+        {
+            cout << printstate[i][j] << "\t";
+        }
+        cout << endl
+             << endl;
+    }
+}
+
+void printSolutionPath(Node ournode, Node initialnode)
+{
+    vector<Node> solutionPath;
+    while (ournode.parent != nullptr)
+    {
+        solutionPath.push_back(ournode);
+        ournode = *ournode.parent; // Move to the parent node
+    }
+
+    // Print the solution path in reverse order
+    cout << "Optimal Solution Path:" << endl<<endl;
+    cout<<"Step:"<<initialnode.cost<<endl;
+    print_state(initialnode.state);
+    for (auto it = solutionPath.rbegin(); it != solutionPath.rend(); it++)
+    {
+        cout << endl;
+        cout << "Step: " << it->cost << endl;
+        print_state(it->state);
+    }
+}
+
+// Function to calculate successor states
+vector<PuzzleState> get_successors(const PuzzleState& current)
+{
+    vector<PuzzleState> successors;
+    // Find empty tile
+    int emptyrow = -1, emptycol = -1;
+    for (int i = 0; i < current.size(); i++)
+    {
+        for (int j = 0; j < current.size(); j++)
+        {
+            if (current[i][j] == 0)
+            {
+                emptyrow = i;
+                emptycol = j;
+                break;
+            }
+        }
+        if (emptyrow != -1)
+        {
+            break;
+        }
+    }
+
+    // Move in different directions
+    const vector<int> moverow = {-1, 1, 0, 0};
+    const vector<int> movecol = {0, 0, 1, -1};
+
+    for (int i = 0; i < moverow.size(); i++)
+    {
+        int newrow = emptyrow + moverow[i];
+        int newcol = emptycol + movecol[i];
+        // Check if boundary crossed (n*n matrix)
+        if (newrow >= 0 && newrow < current.size() && newcol >= 0 && newcol < current.size())
+        {
+            PuzzleState successor = current;
+            swap(successor[emptyrow][emptycol], successor[newrow][newcol]);
+            successors.push_back(successor);
+        }
+    }
+    return successors;
+}
+
+int main()
+{
+    PuzzleState initialstate(3, vector<int>(3, 0));//makes all elements of vector 0 three times
+    cout<<"Enter initial state of puzzle (random numbers between 0 to 8 without repetitions)"<<endl;
+    for(int i=0;i<3;i++)
+    {
+        for(int j=0;j<3;j++)
+        {
+            cin>>initialstate[i][j];
+        }
+    }
+    PuzzleState goalstate = {{1, 2, 3}, {4, 5, 6}, {7, 8, 0}};
+    if (!Solvable(initialstate))
+    {
+        cout << "Solutions can't be reached!!";
+    }
+
+    queue<Node, list<Node>> q;
+    unordered_set<PuzzleState> closedList;
+    Node initialnode;
+    initialnode.state = initialstate;
+    initialnode.parent = nullptr;
+    initialnode.cost = 0;
+    q.push(initialnode); // push initial node with state and parent in node
+
+    // BFS using queue
+    while (!q.empty())
+    {
+        Node currentnode = q.front();
+        q.pop();
+
+        if (currentnode.state == goalstate)
+        {
+            cout <<endl<< "Goal state reached:" << endl;
+            printSolutionPath(currentnode, initialnode);
+            exit(1); // Exit the loop since the goal state is reached
+        }
+
+        // Generate successors
+        vector<PuzzleState> successors = get_successors(currentnode.state);
+        for (const auto &successorState : successors)
+        {
+            Node successorNode;
+            successorNode.cost = currentnode.cost + 1;
+            successorNode.state = successorState;
+            successorNode.parent = new Node(currentnode); // a new instance of the parent node for each successor
+
+            // Check if the successor is already in the closed list
+            if (closedList.find(successorNode.state) == closedList.end())
+            {
+                q.push(successorNode);
+                closedList.insert(successorNode.state);
+            }
+        }
+    }
+
+    return 0;
+}
