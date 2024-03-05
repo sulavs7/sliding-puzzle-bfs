@@ -40,8 +40,9 @@ struct equal_to<vector<vector<int>>>
 };
 }
 
-struct Node
+class Node
 {
+public:
     int cost;
     PuzzleState state;
     Node* parent;
@@ -66,26 +67,25 @@ bool Solvable(const PuzzleState& state)
             {
                 inversions++;
             }
+
+        }
+    }
+    cout<<"no. of inversion="<<inversions<<endl;
+    if (state.size() % 2 == 1)//odd width
+    {
+
+        if (inversions % 2 == 0)//no.of inversion is even for solvable
+        {
+            cout<<"Initial state is solvable as inversion is even"<<endl;
+            return 1;
+        }
+        else
+        {
+              cout<<"Initial state is not solvable as inversion is odd"<<endl;
+            return 0;
         }
     }
 
-    if (state.size() % 2 == 1)
-    {
-        return inversions % 2 == 0;
-    }
-    else
-    {
-        int blankRowFromBottom = 0; // row containing the blank tile (0-indexed) from the bottom
-        for (int i = 0; i < state.size(); i++)
-        {
-            if (state[i][state.size() - 1] == 0)
-            {
-                blankRowFromBottom = i;
-                break;
-            }
-        }
-        return (inversions + blankRowFromBottom) % 2 == 1;
-    }
 }
 
 void print_state(const PuzzleState& printstate)
